@@ -1,0 +1,417 @@
+{
+  "info": {
+    "name": "Smart Parking Lot Management System API",
+    "_postman_id": "parking-lot-api-v1",
+    "description": "Complete Postman collection for verifying Parking Lot Management System RESTful backend services, including slot allocation, checkout billing, real-time fare computation, and revenue reporting.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "testVehicleNumber",
+      "value": "MH12AB1234",
+      "type": "string"
+    },
+    {
+      "key": "activeBookingId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Parking Slots",
+      "item": [
+        {
+          "name": "Get Real-time Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/slots/available",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "slots", "available"]
+            }
+          }
+        },
+        {
+          "name": "Get Available Slots Filtered by Type (EV)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/slots/available?slotType=EV",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "slots", "available"],
+              "query": [
+                {
+                  "key": "slotType",
+                  "value": "EV"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List All Parking Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/slots",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "slots"]
+            }
+          }
+        },
+        {
+          "name": "Get Slot by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/slots/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "slots", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Parking Slot (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/slots?slotNumber=C1&slotType=STANDARD",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "slots"],
+              "query": [
+                {
+                  "key": "slotNumber",
+                  "value": "C1"
+                },
+                {
+                  "key": "slotType",
+                  "value": "STANDARD"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Slot Booking (Entry)",
+      "item": [
+        {
+          "name": "Book Entry (Auto-Allocate Available Slot)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.bookingId) {",
+                  "    pm.collectionVariables.set('activeBookingId', jsonData.data.bookingId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleNumber\": \"MH12AB1234\",\n  \"slotType\": \"STANDARD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/entry",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "entry"]
+            }
+          }
+        },
+        {
+          "name": "Book Entry (Specific Slot Allocation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleNumber\": \"DL04XY5678\",\n  \"slotId\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/entry",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "entry"]
+            }
+          }
+        },
+        {
+          "name": "Book Entry - Duplicate Active Vehicle Error (Expect 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleNumber\": \"MH12AB1234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/entry",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "entry"]
+            }
+          }
+        },
+        {
+          "name": "Book Entry - Bean Validation Failure (Expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleNumber\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/entry",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "entry"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Active Records",
+      "item": [
+        {
+          "name": "Fetch All Active Bookings / Occupied Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "active"]
+            }
+          }
+        },
+        {
+          "name": "Get Booking by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{activeBookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{activeBookingId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Real-time Fare Calculation",
+      "item": [
+        {
+          "name": "Calculate Current Accrued Fare by Booking ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{activeBookingId}}/fare",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "{{activeBookingId}}", "fare"]
+            }
+          }
+        },
+        {
+          "name": "Calculate Current Accrued Fare by Vehicle Number",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/fare?vehicleNumber=MH12AB1234",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "fare"],
+              "query": [
+                {
+                  "key": "vehicleNumber",
+                  "value": "MH12AB1234"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Calculate Fare with Simulated Timestamp (e.g., 3 hrs 5 mins later)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/fare?vehicleNumber=MH12AB1234&asOf=2026-10-29T18:05:00",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "fare"],
+              "query": [
+                {
+                  "key": "vehicleNumber",
+                  "value": "MH12AB1234"
+                },
+                {
+                  "key": "asOf",
+                  "value": "2026-10-29T18:05:00"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Checkout & Billing",
+      "item": [
+        {
+          "name": "Checkout by Booking ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": {{activeBookingId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "checkout"]
+            }
+          }
+        },
+        {
+          "name": "Checkout by Vehicle Number",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleNumber\": \"DL04XY5678\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "checkout"]
+            }
+          }
+        },
+        {
+          "name": "Checkout - Non-existent Booking Error (Expect 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": 99999\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "bookings", "checkout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Analytics & Revenue Reporting",
+      "item": [
+        {
+          "name": "Get Daily Aggregate Revenue (Today)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/revenue",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "revenue"]
+            }
+          }
+        },
+        {
+          "name": "Get Daily Aggregate Revenue for Specific Date",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/revenue?date=2026-10-29",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "revenue"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-10-29"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Documentation & Swagger",
+      "item": [
+        {
+          "name": "OpenAPI 3 JSON Specification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v3/api-docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["v3", "api-docs"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
