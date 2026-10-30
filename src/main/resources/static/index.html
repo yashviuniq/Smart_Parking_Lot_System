@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Parking Lot Management System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .badge-available { background-color: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-occupied { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .slot-card { transition: all 0.2s ease-in-out; }
+    .slot-card:hover { transform: translateY(-2px); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-indigo-900 text-white shadow-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-xl shadow">
+          <i class="fa-solid fa-square-parking"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight tracking-tight">Smart Parking Lot System</h1>
+          <p class="text-xs text-indigo-200">RESTful Backend &bull; Clean Architecture &bull; Port 8080</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> Backend Online
+        </span>
+        <a href="/swagger-ui.html" target="_blank" class="px-3 py-1.5 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-xs font-semibold text-white border border-indigo-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-book-open"></i> Swagger UI
+        </a>
+        <a href="/v3/api-docs" target="_blank" class="px-3 py-1.5 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-xs font-semibold text-white border border-indigo-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-code"></i> OpenAPI JSON
+        </a>
+        <a href="/h2-console" target="_blank" class="px-3 py-1.5 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-xs font-semibold text-white border border-indigo-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-database"></i> H2 DB
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Pricing Banner -->
+  <div class="bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm text-sm py-2 px-4">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-tag text-amber-200"></i>
+        <span class="font-bold">Official Pricing Rule:</span> Flat charge of <span class="bg-white/20 px-2 py-0.5 rounded font-bold">₹50 per 3 hours</span> (or fraction thereof).
+        <span class="text-xs text-amber-100 hidden md:inline">&bull; 2h 15m = ₹50 &bull; 3h 5m = ₹100 &bull; 6h 1m = ₹150</span>
+      </div>
+      <button onclick="refreshAll()" class="text-xs bg-white text-amber-900 font-bold px-3 py-1 rounded shadow hover:bg-amber-50 transition flex items-center gap-1">
+        <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
+      </button>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- KPI Stats Counters -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div class="flex justify-between items-center text-slate-500 mb-1">
+          <span class="text-xs font-medium uppercase tracking-wider">Total Slots</span>
+          <i class="fa-solid fa-warehouse text-slate-400"></i>
+        </div>
+        <div class="text-2xl font-extrabold text-slate-800" id="stat-total">-</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 bg-emerald-50/30">
+        <div class="flex justify-between items-center text-emerald-700 mb-1">
+          <span class="text-xs font-semibold uppercase tracking-wider">Available</span>
+          <i class="fa-solid fa-circle-check text-emerald-500"></i>
+        </div>
+        <div class="text-2xl font-extrabold text-emerald-600" id="stat-available">-</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-rose-100 bg-rose-50/30">
+        <div class="flex justify-between items-center text-rose-700 mb-1">
+          <span class="text-xs font-semibold uppercase tracking-wider">Occupied</span>
+          <i class="fa-solid fa-car-side text-rose-500"></i>
+        </div>
+        <div class="text-2xl font-extrabold text-rose-600" id="stat-occupied">-</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-indigo-100 bg-indigo-50/30">
+        <div class="flex justify-between items-center text-indigo-700 mb-1">
+          <span class="text-xs font-semibold uppercase tracking-wider">Today's Revenue</span>
+          <i class="fa-solid fa-indian-rupee-sign text-indigo-500"></i>
+        </div>
+        <div class="text-2xl font-extrabold text-indigo-700" id="stat-revenue">₹0.00</div>
+      </div>
+    </div>
+
+    <!-- Alert / Toast Container -->
+    <div id="alertBox" class="hidden rounded-lg p-3 text-sm font-medium flex items-center justify-between shadow-sm"></div>
+
+    <!-- Main 2-Column Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Column 1 & 2: Real-time Parking Lot Grid -->
+      <div class="lg:col-span-2 space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+            <div>
+              <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-car text-indigo-600"></i> Real-time Parking Lot Grid
+              </h2>
+              <p class="text-xs text-slate-500">Click any available slot to allocate, or occupied slot to view live fare</p>
+            </div>
+            <!-- Slot filter -->
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-slate-500">Filter:</span>
+              <select id="filterType" onchange="loadSlots()" class="border border-slate-300 rounded px-2 py-1 font-medium bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <option value="">All Types</option>
+                <option value="STANDARD">Standard</option>
+                <option value="COMPACT">Compact</option>
+                <option value="LARGE">Large</option>
+                <option value="EV">EV (Electric)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Slots Grid -->
+          <div id="slotsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div class="col-span-full py-8 text-center text-slate-400">Loading slots...</div>
+          </div>
+        </div>
+
+        <!-- Active Parking Records Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-indigo-600"></i> Active Parking Sessions
+            </h3>
+            <span id="activeCountBadge" class="text-xs bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded-full">0 active</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left text-slate-600">
+              <thead class="bg-slate-50 text-slate-700 uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="py-2.5 px-3">Vehicle</th>
+                  <th class="py-2.5 px-3">Slot</th>
+                  <th class="py-2.5 px-3">Entry Time</th>
+                  <th class="py-2.5 px-3">Accrued Fare</th>
+                  <th class="py-2.5 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="activeTableBody" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="5" class="py-6 text-center text-slate-400">No active vehicles currently parked.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 3: Actions & Calculators -->
+      <div class="space-y-5">
+
+        <!-- Action Card: Vehicle Entry -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <h3 class="font-bold text-base text-slate-800 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-ticket text-emerald-600"></i> Vehicle Entry (Book Slot)
+          </h3>
+          <form id="entryForm" onsubmit="handleEntry(event)" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Vehicle Registration Number *</label>
+              <input type="text" id="entryVehicle" required placeholder="e.g. MH12AB1234" class="w-full uppercase font-mono tracking-wider border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Preferred Type</label>
+                <select id="entryType" class="w-full border border-slate-300 rounded-lg px-2 py-2 text-xs bg-slate-50">
+                  <option value="">Any Type</option>
+                  <option value="STANDARD">Standard</option>
+                  <option value="COMPACT">Compact</option>
+                  <option value="LARGE">Large</option>
+                  <option value="EV">EV</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Specific Slot ID</label>
+                <select id="entrySlotSelect" class="w-full border border-slate-300 rounded-lg px-2 py-2 text-xs bg-slate-50">
+                  <option value="">Auto-Allocate</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-arrow-right-to-bracket"></i> Allocate & Park Vehicle
+            </button>
+          </form>
+        </div>
+
+        <!-- Action Card: Real-time Accrued Fare Calculator -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <h3 class="font-bold text-base text-slate-800 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-calculator text-indigo-600"></i> Real-time Fare Calculator
+          </h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Vehicle Number</label>
+              <input type="text" id="fareVehicle" placeholder="e.g. MH12AB1234" class="w-full uppercase font-mono tracking-wider border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50">
+            </div>
+            <button onclick="calculateFare()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-indian-rupee-sign"></i> Calculate Accrued Fare
+            </button>
+            <div id="fareResultBox" class="hidden p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-xs space-y-1"></div>
+          </div>
+        </div>
+
+        <!-- Action Card: Vehicle Checkout -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <h3 class="font-bold text-base text-slate-800 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-receipt text-rose-600"></i> Vehicle Checkout & Billing
+          </h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Vehicle Registration to Exit</label>
+              <input type="text" id="checkoutVehicle" placeholder="e.g. MH12AB1234" class="w-full uppercase font-mono tracking-wider border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50">
+            </div>
+            <button onclick="handleCheckout()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i> Process Exit & Bill
+            </button>
+            <div id="checkoutResultBox" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs space-y-1.5"></div>
+          </div>
+        </div>
+
+        <!-- Action Card: Revenue Analytics -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <h3 class="font-bold text-base text-slate-800 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-purple-600"></i> Revenue Reporting
+          </h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Select Report Date</label>
+              <input type="date" id="revenueDate" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-slate-50">
+            </div>
+            <button onclick="loadRevenueReport()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-file-invoice"></i> View Daily Revenue
+            </button>
+            <div id="revenueResultBox" class="hidden p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs space-y-1"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-slate-200 text-center py-4 text-xs text-slate-500 mt-10">
+    <div class="max-w-7xl mx-auto px-4 flex flex-wrap justify-between items-center gap-2">
+      <div>&copy; 2026 Smart Parking Lot Management System &bull; Clean Architecture &bull; Spring Boot 3.3.4</div>
+      <div class="flex items-center gap-3">
+        <a href="/swagger-ui.html" class="hover:text-indigo-600 font-medium">Swagger API Docs</a>
+        &bull;
+        <a href="/v3/api-docs" class="hover:text-indigo-600 font-medium">OpenAPI Schema</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    let allSlots = [];
+    let activeBookings = [];
+
+    // Set today's date in revenue picker on load
+    document.getElementById('revenueDate').value = new Date().toISOString().split('T')[0];
+
+    async function fetchApi(url, options = {}) {
+      try {
+        const res = await fetch(url, options);
+        const json = await res.json();
+        return { status: res.status, ok: res.ok, data: json };
+      } catch (err) {
+        return { status: 0, ok: false, error: err.message };
+      }
+    }
+
+    function showAlert(msg, type = 'success') {
+      const box = document.getElementById('alertBox');
+      box.className = `rounded-lg p-3 text-sm font-medium flex items-center justify-between shadow-sm ` + 
+        (type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200');
+      box.innerHTML = `<span><i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-triangle-exclamation'} mr-2"></i>${msg}</span>
+                       <button onclick="this.parentElement.classList.add('hidden')" class="text-xs font-bold px-2 py-0.5">&times;</button>`;
+      box.classList.remove('hidden');
+      setTimeout(() => box.classList.add('hidden'), 6000);
+    }
+
+    async function loadSlots() {
+      const filter = document.getElementById('filterType').value;
+      const res = await fetchApi('/api/v1/slots');
+      if (res.ok && res.data.data) {
+        allSlots = res.data.data;
+        renderSlots(filter);
+        updateEntrySlotDropdown();
+        updateStats();
+      }
+    }
+
+    function renderSlots(filter) {
+      const grid = document.getElementById('slotsGrid');
+      grid.innerHTML = '';
+
+      let slots = allSlots;
+      if (filter) {
+        slots = slots.filter(s => s.slotType === filter);
+      }
+
+      if (slots.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400">No parking slots found matching criteria.</div>`;
+        return;
+      }
+
+      slots.forEach(slot => {
+        const isAvail = slot.status === 'AVAILABLE';
+        const card = document.createElement('div');
+        card.className = `slot-card rounded-xl border p-3 flex flex-col justify-between cursor-pointer ${
+          isAvail ? 'bg-white border-emerald-200 hover:border-emerald-400' : 'bg-rose-50/50 border-rose-200 hover:border-rose-400'
+        }`;
+
+        card.innerHTML = `
+          <div>
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-extrabold text-lg text-slate-800 tracking-tight">${slot.slotNumber}</span>
+              <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${isAvail ? 'badge-available' : 'badge-occupied'}">
+                ${slot.status}
+              </span>
+            </div>
+            <div class="text-[11px] font-medium text-slate-500 mb-3 flex items-center gap-1">
+              <i class="fa-solid fa-tag text-slate-400"></i> ${slot.slotType}
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+            ${isAvail 
+              ? `<button onclick="prefillEntry('${slot.id}', '${slot.slotType}')" class="text-emerald-700 hover:text-emerald-800 font-semibold text-[11px] flex items-center gap-1">
+                   <i class="fa-solid fa-plus-circle"></i> Park Here
+                 </button>` 
+              : `<button onclick="prefillCheckoutBySlot('${slot.id}')" class="text-rose-700 hover:text-rose-800 font-semibold text-[11px] flex items-center gap-1">
+                   <i class="fa-solid fa-receipt"></i> Checkout
+                 </button>`
+            }
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function updateEntrySlotDropdown() {
+      const select = document.getElementById('entrySlotSelect');
+      select.innerHTML = '<option value="">Auto-Allocate</option>';
+      allSlots.filter(s => s.status === 'AVAILABLE').forEach(slot => {
+        select.innerHTML += `<option value="${slot.id}">${slot.slotNumber} (${slot.slotType})</option>`;
+      });
+    }
+
+    async function loadActiveBookings() {
+      const res = await fetchApi('/api/v1/bookings/active');
+      const tbody = document.getElementById('activeTableBody');
+      const badge = document.getElementById('activeCountBadge');
+
+      if (res.ok && res.data.data) {
+        activeBookings = res.data.data;
+        badge.textContent = `${activeBookings.length} active`;
+
+        if (activeBookings.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400">No active vehicles currently parked.</td></tr>`;
+          updateStats();
+          return;
+        }
+
+        tbody.innerHTML = activeBookings.map(b => `
+          <tr class="hover:bg-slate-50/70 transition">
+            <td class="py-2 px-3 font-mono font-bold text-slate-800 text-xs">${b.vehicleNumber}</td>
+            <td class="py-2 px-3 font-semibold text-indigo-700 text-xs">${b.slotNumber || 'N/A'}</td>
+            <td class="py-2 px-3 text-slate-500 text-[11px]">${formatDate(b.entryTime)}</td>
+            <td class="py-2 px-3">
+              <button onclick="calculateFareForVehicle('${b.vehicleNumber}')" class="font-bold text-indigo-600 hover:text-indigo-800 text-xs flex items-center gap-1">
+                <i class="fa-solid fa-calculator"></i> Calculate
+              </button>
+            </td>
+            <td class="py-2 px-3 text-right">
+              <button onclick="prefillCheckout('${b.vehicleNumber}')" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-2 py-1 rounded text-[11px] border border-rose-200 transition">
+                Exit & Bill
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+      updateStats();
+    }
+
+    function formatDate(dt) {
+      if (!dt) return '-';
+      const d = new Date(dt);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    function updateStats() {
+      const total = allSlots.length;
+      const available = allSlots.filter(s => s.status === 'AVAILABLE').length;
+      const occupied = allSlots.filter(s => s.status === 'OCCUPIED').length;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-available').textContent = available;
+      document.getElementById('stat-occupied').textContent = occupied;
+    }
+
+    async function loadTodayRevenue() {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetchApi(`/api/v1/analytics/revenue?date=${today}`);
+      if (res.ok && res.data.data) {
+        document.getElementById('stat-revenue').textContent = `₹${Number(res.data.data.totalRevenue).toFixed(2)}`;
+      }
+    }
+
+    function prefillEntry(slotId, slotType) {
+      document.getElementById('entrySlotSelect').value = slotId;
+      document.getElementById('entryType').value = slotType || '';
+      document.getElementById('entryVehicle').focus();
+    }
+
+    function prefillCheckout(vehicleNumber) {
+      document.getElementById('checkoutVehicle').value = vehicleNumber;
+      document.getElementById('checkoutVehicle').focus();
+    }
+
+    function prefillCheckoutBySlot(slotId) {
+      const booking = activeBookings.find(b => b.slotId == slotId);
+      if (booking) {
+        prefillCheckout(booking.vehicleNumber);
+      } else {
+        document.getElementById('checkoutVehicle').focus();
+      }
+    }
+
+    async function handleEntry(e) {
+      e.preventDefault();
+      const vehicle = document.getElementById('entryVehicle').value.trim().toUpperCase();
+      const slotId = document.getElementById('entrySlotSelect').value;
+      const slotType = document.getElementById('entryType').value;
+
+      const payload = { vehicleNumber: vehicle };
+      if (slotId) payload.slotId = parseInt(slotId);
+      if (slotType) payload.slotType = slotType;
+
+      const res = await fetchApi('/api/v1/bookings/entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        showAlert(res.data.message || 'Vehicle parked successfully!', 'success');
+        document.getElementById('entryForm').reset();
+        refreshAll();
+      } else {
+        const errorMsg = res.data?.message || res.data?.error || 'Failed to book slot';
+        showAlert(errorMsg, 'error');
+      }
+    }
+
+    async function calculateFareForVehicle(vehicleNumber) {
+      document.getElementById('fareVehicle').value = vehicleNumber;
+      await calculateFare();
+    }
+
+    async function calculateFare() {
+      const vehicle = document.getElementById('fareVehicle').value.trim().toUpperCase();
+      if (!vehicle) {
+        showAlert('Please enter vehicle registration number', 'error');
+        return;
+      }
+
+      const res = await fetchApi(`/api/v1/bookings/fare?vehicleNumber=${encodeURIComponent(vehicle)}`);
+      const box = document.getElementById('fareResultBox');
+
+      if (res.ok && res.data.data) {
+        const fare = res.data.data;
+        box.className = 'p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-xs space-y-1 block';
+        box.innerHTML = `
+          <div class="flex justify-between font-bold text-indigo-900 border-b border-indigo-200 pb-1">
+            <span>Vehicle: ${fare.vehicleNumber} (Slot ${fare.slotNumber})</span>
+            <span class="text-emerald-700 text-sm">₹${Number(fare.totalFare).toFixed(2)}</span>
+          </div>
+          <div class="text-slate-600 pt-1"><strong>Duration:</strong> ${fare.durationFormatted} (${fare.durationMinutes} min)</div>
+          <div class="text-slate-600"><strong>Billed Slabs:</strong> ${fare.billedSlabs} slab(s) @ ₹${fare.slabRate}/3hr</div>
+          <div class="text-slate-500 italic text-[11px]">${fare.feeBreakdown}</div>
+        `;
+      } else {
+        const errorMsg = res.data?.message || 'No active booking found for vehicle';
+        box.className = 'p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 block';
+        box.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> ${errorMsg}`;
+      }
+    }
+
+    async function handleCheckout() {
+      const vehicle = document.getElementById('checkoutVehicle').value.trim().toUpperCase();
+      if (!vehicle) {
+        showAlert('Please enter vehicle registration number to checkout', 'error');
+        return;
+      }
+
+      const res = await fetchApi('/api/v1/bookings/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicleNumber: vehicle })
+      });
+
+      const box = document.getElementById('checkoutResultBox');
+
+      if (res.ok && res.data.data) {
+        const bill = res.data.data;
+        showAlert(`Vehicle ${bill.vehicleNumber} checked out! Slot ${bill.slotNumber} is now free.`, 'success');
+        box.className = 'p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs space-y-1.5 block';
+        box.innerHTML = `
+          <div class="font-bold text-emerald-900 border-b border-emerald-200 pb-1 flex justify-between">
+            <span>Checkout Invoice #${bill.bookingId}</span>
+            <span class="text-emerald-800 font-extrabold text-sm">₹${Number(bill.feeAmount).toFixed(2)}</span>
+          </div>
+          <div class="text-slate-700"><strong>Vehicle:</strong> ${bill.vehicleNumber} | <strong>Slot:</strong> ${bill.slotNumber}</div>
+          <div class="text-slate-700"><strong>Duration:</strong> ${bill.durationFormatted}</div>
+          <div class="text-slate-700"><strong>Status:</strong> <span class="bg-emerald-200 text-emerald-800 font-bold px-1 rounded">${bill.paymentStatus}</span></div>
+        `;
+        document.getElementById('checkoutVehicle').value = '';
+        refreshAll();
+      } else {
+        const errorMsg = res.data?.message || 'Checkout failed';
+        showAlert(errorMsg, 'error');
+        box.className = 'p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 block';
+        box.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> ${errorMsg}`;
+      }
+    }
+
+    async function loadRevenueReport() {
+      const date = document.getElementById('revenueDate').value;
+      const res = await fetchApi(`/api/v1/analytics/revenue?date=${date}`);
+      const box = document.getElementById('revenueResultBox');
+
+      if (res.ok && res.data.data) {
+        const rep = res.data.data;
+        box.className = 'p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs space-y-1 block';
+        box.innerHTML = `
+          <div class="font-bold text-purple-900 flex justify-between border-b border-purple-200 pb-1">
+            <span>Date: ${rep.reportDate}</span>
+            <span class="text-purple-800 font-extrabold text-sm">₹${Number(rep.totalRevenue).toFixed(2)}</span>
+          </div>
+          <div class="text-slate-700 pt-1"><strong>Completed Checkouts:</strong> ${rep.totalCompletedBookings} vehicle(s)</div>
+        `;
+      }
+    }
+
+    function refreshAll() {
+      loadSlots();
+      loadActiveBookings();
+      loadTodayRevenue();
+    }
+
+    // Auto-refresh every 10 seconds
+    setInterval(refreshAll, 10000);
+    // Initial fetch
+    refreshAll();
+  </script>
+</body>
+</html>
